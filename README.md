@@ -20,6 +20,8 @@ SECRET_2=abcdef
 
 Multiple hierarchy paths can be passed in via `-paths` (comma separated):
 ```
+> aws ssm put-parameter --name /production/app-1/SECRET_1 --value "123456" --type SecureString --key-id <kms-key-id> --region <aws-region>
+> aws ssm put-parameter --name /production/app-1/secret_2 --value "abcdef" --type SecureString --key-id <kms-key-id> --region <aws-region>
 > aws ssm put-parameter --name /production/common/common_secret --value "foobarbaz" --type SecureString --key-id <kms-key-id> --region <aws-region>
 > export $(AWS_REGION=<aws-region> aws-ssm-env -paths /production/app-1/,/production/common/)
 > env
@@ -37,8 +39,9 @@ go get:
 ```
 Or download [binary](https://github.com/jamietsao/aws-ssm-env/releases/latest):
 ```
-> wget https://github.com/jamietsao/aws-ssm-env/releases/download/v0.1.0/aws-ssm-env-v0.1.0-linux-amd64 -O aws-ssm-env
-> chmod +x aws-ssm-env
+> wget -O aws-ssm-env.zip https://github.com/jamietsao/aws-ssm-env/releases/download/v0.1.0/aws-ssm-env-v0.1.0-linux-amd64.zip
+> unzip aws-ssm-env.zip
+> chmod 755 aws-ssm-env
 ```
 
 ### Author
