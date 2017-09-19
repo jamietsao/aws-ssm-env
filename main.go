@@ -1,13 +1,18 @@
 package main
 
 import (
-	"flag"
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
+)
+
+const (
+	PATHS_ENV  = "SSM_PATHS"
+	PATHS_FILE = "ssm_paths.txt"
 )
 
 var (
@@ -18,11 +23,11 @@ var (
 )
 
 func main() {
-	// parse command line flags
-	initFlags()
-
 	// initialize AWS client
 	initClient()
+
+	// initialize path hierarchies
+	initPaths()
 
 	// fetch parameters
 	params, err := fetchParams(paths)
@@ -34,30 +39,60 @@ func main() {
 	printParams(params)
 }
 
-func initFlags() {
-	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies")
-	flag.Parse()
+func initClient() {
+	session := session.Must(session.NewSession())
+	client = ssm.New(session)
+}
 
-	if *pathsFlag != "" {
-		paths = strings.Split(*pathsFlag, ",")
+func initPaths() {
+	// SSM_PATHS env variable takes precedence
+	paths, exists := pathsFromEnv()
+
+	// if SSM_PATHS is not given, read paths from ssm_paths.txt file
+	if !exists {
+		paths = pathsFromFile(PATHS_FILE)
 	}
 
-	if len(paths) == 0 {
-		flag.Usage()
-		os.Exit(1)
-	}
+	fmt.Println(paths)
 
+	// ensure only path hierarchies were given
 	for _, path := range paths {
 		if !strings.Contains(path, "/") {
-			fmt.Printf("Invalid path: '%s' - only path hierarchies are supported (e.g. '/production/eventsdiscovery/')\n", path)
+			fmt.Printf("Invalid path: '%s' - only path hierarchies are supported (e.g. '/production/webapp/')\n", path)
 			os.Exit(1)
 		}
 	}
 }
 
-func initClient() {
-	session := session.Must(session.NewSession())
-	client = ssm.New(session)
+func pathsFromFile(filename string) []string {
+	paths := make([]string, 0)
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return paths
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		paths = append(paths, scanner.Text())
+	}
+
+	return paths
+}
+
+func pathsFromEnv() ([]string, bool) {
+	var paths []string
+
+	envPaths, found := os.LookupEnv(PATHS_ENV)
+	if !found {
+		return paths, false
+	}
+
+	if envPaths != "" {
+		paths = strings.Split(envPaths, ",")
+	}
+	return paths, true
 }
 
 func fetchParams(paths []string) ([]*ssm.Parameter, error) {
