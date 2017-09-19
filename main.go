@@ -53,8 +53,6 @@ func initPaths() {
 		paths = pathsFromFile(PATHS_FILE)
 	}
 
-	fmt.Println(paths)
-
 	// ensure only path hierarchies were given
 	for _, path := range paths {
 		if !strings.Contains(path, "/") {
