@@ -18,7 +18,7 @@ SECRET_2=abcdef
 ```
 *Notice that parameter names are automatically capitalized.*
 
-Multiple hierarchy paths can be passed in via `SSM_PATHS` (comma separated):
+Multiple hierarchy paths can be passed in `SSM_PATHS` (comma separated):
 ```
 > aws ssm put-parameter --name /production/app-1/SECRET_1 --value "123456" --type SecureString --key-id <kms-key-id> --region <aws-region>
 > aws ssm put-parameter --name /production/app-1/secret_2 --value "abcdef" --type SecureString --key-id <kms-key-id> --region <aws-region>
