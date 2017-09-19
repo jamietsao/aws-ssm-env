@@ -46,7 +46,8 @@ func initClient() {
 
 func initPaths() {
 	// SSM_PATHS env variable takes precedence
-	paths, exists := pathsFromEnv()
+	var exists bool
+	paths, exists = pathsFromEnv()
 
 	// if SSM_PATHS is not given, read paths from ssm_paths.txt file
 	if !exists {
@@ -63,34 +64,34 @@ func initPaths() {
 }
 
 func pathsFromFile(filename string) []string {
-	paths := make([]string, 0)
+	filePaths := make([]string, 0)
 
 	f, err := os.Open(filename)
 	if err != nil {
-		return paths
+		return filePaths
 	}
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		paths = append(paths, scanner.Text())
+		filePaths = append(filePaths, scanner.Text())
 	}
 
-	return paths
+	return filePaths
 }
 
 func pathsFromEnv() ([]string, bool) {
-	var paths []string
+	var envPaths []string
 
-	envPaths, found := os.LookupEnv(PATHS_ENV)
+	envStr, found := os.LookupEnv(PATHS_ENV)
 	if !found {
-		return paths, false
+		return envPaths, false
 	}
 
-	if envPaths != "" {
-		paths = strings.Split(envPaths, ",")
+	if envStr != "" {
+		envPaths = strings.Split(envStr, ",")
 	}
-	return paths, true
+	return envPaths, true
 }
 
 func fetchParams(paths []string) ([]*ssm.Parameter, error) {
