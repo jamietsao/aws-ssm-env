@@ -4,46 +4,49 @@ Simple utility to print parameters from Amazon EC2 Systems Manager (ssm) Paramet
 ### Usage
 Create secret parameters on AWS Parameter Store for your application using [hierarchies](http://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-working.html#sysman-paramstore-su-organize):
 ```
-> aws ssm put-parameter --name /production/app-1/SECRET_1 --value "123456" --type SecureString --key-id <kms-key-id> --region <aws-region>
-> aws ssm put-parameter --name /production/app-1/secret_2 --value "abcdef" --type SecureString --key-id <kms-key-id> --region <aws-region>
+> aws ssm put-parameter --name /userservice/SECRET_1 --value "123456" --type SecureString
+> aws ssm put-parameter --name /accountservice/secret_2 --value "abcdef" --type SecureString
+> aws ssm put-parameter --name /accountservice/secret_3 --value "foobarbaz" --type SecureString
+> aws ssm put-parameter --name /database/production/password --value "productionpass" --type SecureString
+> aws ssm put-parameter --name /database/staging/password --value "stagingpass" --type SecureString
 ```
-Use `export` with `aws-ssm-env` to inject secrets from Parameter Store into the environment:
+Add tags to categorize parameters in various ways:
 ```
-> export $(AWS_REGION=<aws-region> SSM_PATHS=/production/app-1/ aws-ssm-env)
-> env
-...
-...
+> aws ssm add-tags-to-resource --resource-type Parameter --resource-id /userservice/SECRET_1 --tags Key=userservice,Value=true Key=production,Value=true
+> aws ssm add-tags-to-resource --resource-type Parameter --resource-id /accountservice/secret_2 --tags Key=accountservice,Value=true Key=production,Value=true
+> aws ssm add-tags-to-resource --resource-type Parameter --resource-id /accountservice/secret_3 --tags Key=accountservice,Value=true Key=staging,Value=true
+> aws ssm add-tags-to-resource --resource-type Parameter --resource-id /database/production/password --tags Key=userservice,Value=true Key=accountservice,Value=true Key=production,Value=true
+> aws ssm add-tags-to-resource --resource-type Parameter --resource-id /database/staging/password --tags Key=userservice,Value=true Key=accountservice,Value=true Key=staging,Value=true
+```
+Retrieve parameters with `aws-ssm-env`:
+```
+# filter by 'userservice' parameters for 'production'
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=userservice,production
 SECRET_1=123456
-SECRET_2=abcdef
+PASSWORD=productionpass
+# filter by 'accountservice' parameters for 'staging'
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=accountservice,staging
+SECRET_3=foobarbaz
+PASSWORD=stagingpass
+# filter by path (`/` will search all parameters)
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/database
+PASSWORD=productionpass
+PASSWORD=stagingpass
+# filter by path and tag
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/database --tags=production
+PASSWORD=productionpass
 ```
 *Notice that parameter names are automatically capitalized.*
 
-Multiple hierarchy paths can be passed in `SSM_PATHS` (comma separated):
-```
-> aws ssm put-parameter --name /production/app-1/SECRET_1 --value "123456" --type SecureString --key-id <kms-key-id> --region <aws-region>
-> aws ssm put-parameter --name /production/app-1/secret_2 --value "abcdef" --type SecureString --key-id <kms-key-id> --region <aws-region>
-> aws ssm put-parameter --name /production/common/common_secret --value "foobarbaz" --type SecureString --key-id <kms-key-id> --region <aws-region>
-> export $(AWS_REGION=<aws-region> SSM_PATHS=/production/app-1/,/production/common/ aws-ssm-env)
-> env
-...
-...
-SECRET_1=123456
-SECRET_2=abcdef
-COMMON_SECRET=foobarbaz
-```
 
-Paths can also be specified in `ssm_paths.txt` (`SSM_PATHS` takes precedence):
+Use `export` with `aws-ssm-env` to inject secrets from Parameter Store into the environment:
 ```
-> cat ssm_paths.txt
-/production/app-1/
-/production/common/
-> export $(AWS_REGION=<aws-region> aws-ssm-env)
+> export $(AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=userservice,production)
 > env
 ...
 ...
 SECRET_1=123456
-SECRET_2=abcdef
-COMMON_SECRET=foobarbaz
+PASSWORD=productionpass
 ```
 
 ### Installation
@@ -53,7 +56,7 @@ go get:
 ```
 Or download [binary](https://github.com/jamietsao/aws-ssm-env/releases/latest):
 ```
-> wget -O aws-ssm-env.zip https://github.com/jamietsao/aws-ssm-env/releases/download/v0.2.0/aws-ssm-env-v0.2.0-linux-amd64.zip
+> wget -O aws-ssm-env.zip https://github.com/jamietsao/aws-ssm-env/releases/download/v1.0.0/aws-ssm-env-v1.0.0-linux-amd64.zip
 > unzip aws-ssm-env.zip
 > chmod 755 aws-ssm-env
 ```
