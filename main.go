@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -10,14 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
-const (
-	PATHS_ENV  = "SSM_PATHS"
-	PATHS_FILE = "ssm_paths.txt"
-)
-
 var (
 	client *ssm.SSM
 	paths  []string
+	tags   []string
 
 	trueBool = true
 )
@@ -26,8 +22,8 @@ func main() {
 	// initialize AWS client
 	initClient()
 
-	// initialize path hierarchies
-	initPaths()
+	// initialize command line flags
+	initFlags()
 
 	// fetch parameters
 	params, err := fetchParams(paths)
@@ -44,14 +40,18 @@ func initClient() {
 	client = ssm.New(session)
 }
 
-func initPaths() {
-	// SSM_PATHS env variable takes precedence
-	var exists bool
-	paths, exists = pathsFromEnv()
+func initFlags() {
+	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies")
+	tagsFlag := flag.String("tags", "", "comma delimited string of tags to filter by")
+	flag.Parse()
 
-	// if SSM_PATHS is not given, read paths from ssm_paths.txt file
-	if !exists {
-		paths = pathsFromFile(PATHS_FILE)
+	initPaths(pathsFlag)
+	initTags(tagsFlag)
+}
+
+func initPaths(pathsFlag *string) {
+	if *pathsFlag != "" {
+		paths = strings.Split(*pathsFlag, ",")
 	}
 
 	// ensure only path hierarchies were given
@@ -63,54 +63,133 @@ func initPaths() {
 	}
 }
 
-func pathsFromFile(filename string) []string {
-	filePaths := make([]string, 0)
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return filePaths
+func initTags(tagsFlag *string) {
+	if *tagsFlag != "" {
+		tags = strings.Split(*tagsFlag, ",")
 	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		filePaths = append(filePaths, scanner.Text())
-	}
-
-	return filePaths
-}
-
-func pathsFromEnv() ([]string, bool) {
-	var envPaths []string
-
-	envStr, found := os.LookupEnv(PATHS_ENV)
-	if !found {
-		return envPaths, false
-	}
-
-	if envStr != "" {
-		envPaths = strings.Split(envStr, ",")
-	}
-	return envPaths, true
 }
 
 func fetchParams(paths []string) ([]*ssm.Parameter, error) {
-	params := make([]*ssm.Parameter, 0)
+	// create tag filters
+	tagFilters := make([]*ssm.ParameterStringFilter, len(tags))
+	for i, tag := range tags {
+		tagFilter := fmt.Sprintf("tag:%s", tag)
+		tagFilters[i] = &ssm.ParameterStringFilter{
+			Key: &tagFilter,
+		}
+	}
 
-	for _, path := range paths {
-		resp, err := client.GetParametersByPath(&ssm.GetParametersByPathInput{
-			Path:           &path,
-			WithDecryption: &trueBool,
-		})
+	// TEMP: until parameter-filters work for get-parameters-by-path (https://github.com/aws/aws-cli/issues/2850),
+	// 1) retrieve parameters by tags via describe-parameters
+	// 2) retrieve parameters by path via get-parameters-by-path
+	// 3) calculate union of two sets
 
-		if err != nil {
-			return params, err
+	// retrieve all parameters with given tags
+	paramNames, err := describeParams(tagFilters)
+	if err != nil {
+		return nil, err
+	}
+
+	// retrieve params for given paths
+	params, err := getParamsByPath(paths)
+	if err != nil {
+		return params, err
+	}
+
+	// calculate union of two sets
+	union := calcUnion(paramNames, params)
+
+	return union, nil
+}
+
+func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
+	paramNames := make([]string, 0)
+
+	done := false
+	var nextToken string
+	for !done {
+		input := &ssm.DescribeParametersInput{
+			ParameterFilters: filters,
 		}
 
-		params = append(params, resp.Parameters...)
+		if nextToken != "" {
+			input.SetNextToken(nextToken)
+		}
+
+		output, err := client.DescribeParameters(input)
+		if err != nil {
+			return paramNames, err
+		}
+
+		for _, param := range output.Parameters {
+			paramNames = append(paramNames, *param.Name)
+		}
+
+		// there are more parameters if nextToken is given in response
+		if output.NextToken != nil {
+			nextToken = *output.NextToken
+		} else {
+			done = true
+		}
+	}
+
+	return paramNames, nil
+}
+
+func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
+	params := make([]*ssm.Parameter, 0)
+
+	// retrieve params for all paths
+	for _, path := range paths {
+
+		done := false
+		var nextToken string
+		for !done {
+			input := &ssm.GetParametersByPathInput{
+				Path:           &path,
+				Recursive:      &trueBool,
+				WithDecryption: &trueBool,
+			}
+
+			if nextToken != "" {
+				input.SetNextToken(nextToken)
+			}
+
+			output, err := client.GetParametersByPath(input)
+			if err != nil {
+				return params, err
+			}
+
+			params = append(params, output.Parameters...)
+
+			// there are more parameters for this path if nextToken is given in response
+			if output.NextToken != nil {
+				nextToken = *output.NextToken
+			} else {
+				done = true
+			}
+		}
 	}
 
 	return params, nil
+}
+
+func calcUnion(paramNames []string, params []*ssm.Parameter) []*ssm.Parameter {
+	// build map lookup
+	lookup := make(map[string]bool)
+	for _, paramName := range paramNames {
+		lookup[paramName] = true
+	}
+
+	// calculate union
+	union := make([]*ssm.Parameter, 0)
+	for _, param := range params {
+		if lookup[*param.Name] {
+			union = append(union, param)
+		}
+	}
+
+	return union
 }
 
 func printParams(params []*ssm.Parameter) {
