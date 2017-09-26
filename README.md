@@ -24,14 +24,17 @@ Retrieve parameters with `aws-ssm-env`:
 > AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=userservice,production
 SECRET_1=123456
 PASSWORD=productionpass
+
 # filter by 'accountservice' parameters for 'staging'
 > AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=accountservice,staging
 SECRET_3=foobarbaz
 PASSWORD=stagingpass
+
 # filter by path (`/` will search all parameters)
 > AWS_REGION=<aws-region> aws-ssm-env --paths=/database
 PASSWORD=productionpass
 PASSWORD=stagingpass
+
 # filter by path and tag
 > AWS_REGION=<aws-region> aws-ssm-env --paths=/database --tags=production
 PASSWORD=productionpass
