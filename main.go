@@ -196,6 +196,6 @@ func printParams(params []*ssm.Parameter) {
 	for _, param := range params {
 		split := strings.Split(*param.Name, "/")
 		name := split[len(split)-1]
-		fmt.Printf("%s=%s\n", strings.ToUpper(name), *param.Value)
+		fmt.Printf("%s='%s'\n", strings.ToUpper(name), *param.Value)
 	}
 }
