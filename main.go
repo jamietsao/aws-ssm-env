@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -15,7 +17,10 @@ var (
 	paths  []string
 	tags   []string
 
-	trueBool = true
+	falseBool     = false
+	trueBool      = true
+	maxSleepWait  = 5000
+	maxRetryCount = 10
 )
 
 func main() {
@@ -33,6 +38,11 @@ func main() {
 
 	// print as env variables
 	printParams(params)
+}
+
+func randomSleep() {
+	r := rand.Intn(maxSleepWait)
+	time.Sleep(time.Duration(r) * time.Microsecond)
 }
 
 func initClient() {
@@ -70,25 +80,10 @@ func initTags(tagsFlag *string) {
 }
 
 func fetchParams(paths []string) ([]*ssm.Parameter, error) {
-	// create tag filters
-	tagFilters := make([]*ssm.ParameterStringFilter, len(tags))
-	for i, tag := range tags {
-		tagFilter := fmt.Sprintf("tag:%s", tag)
-		tagFilters[i] = &ssm.ParameterStringFilter{
-			Key: &tagFilter,
-		}
-	}
-
 	// TEMP: until parameter-filters work for get-parameters-by-path (https://github.com/aws/aws-cli/issues/2850),
-	// 1) retrieve parameters by tags via describe-parameters
-	// 2) retrieve parameters by path via get-parameters-by-path
+	// 1) retrieve parameters by path via get-parameters-by-path
+	// 2) retrieve parameters by tags via describe-parameters
 	// 3) calculate union of two sets
-
-	// retrieve all parameters with given tags
-	paramNames, err := describeParams(tagFilters)
-	if err != nil {
-		return nil, err
-	}
 
 	// retrieve params for given paths
 	params, err := getParamsByPath(paths)
@@ -96,8 +91,27 @@ func fetchParams(paths []string) ([]*ssm.Parameter, error) {
 		return params, err
 	}
 
-	// calculate union of two sets
-	union := calcUnion(paramNames, params)
+	union := params
+	// We are only going to get params by tag if it has been selected.
+	if len(tags) > 0 {
+		// create tag filters
+		tagFilters := make([]*ssm.ParameterStringFilter, len(tags))
+		for i, tag := range tags {
+			tagFilter := fmt.Sprintf("tag:%s", tag)
+			tagFilters[i] = &ssm.ParameterStringFilter{
+				Key: &tagFilter,
+			}
+		}
+
+		// retrieve all parameters with given tags
+		paramNames, err := describeParams(tagFilters)
+		if err != nil {
+			return nil, err
+		}
+
+		// calculate union of two sets
+		union = calcUnion(paramNames, params)
+	}
 
 	return union, nil
 }
@@ -118,7 +132,24 @@ func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
 
 		output, err := client.DescribeParameters(input)
 		if err != nil {
-			return paramNames, err
+			// This means we reached an API throttle event
+			if strings.Contains(err.Error(), "ThrottlingException") {
+				// Loop through up to maxRetryCount times with random sleep when we hit throttling exceptions
+				i := 0
+				for i < maxRetryCount {
+					fmt.Printf("++++++ Encountered SSM rate throttle exception. Sleeping for a random period.\n")
+					randomSleep()
+					output, err = client.DescribeParameters(input)
+					// If we received no further errors, then we can break out of the loop and continue
+					if err == nil {
+						break
+					} else {
+						i++
+					}
+				}
+			} else {
+				return paramNames, err
+			}
 		}
 
 		for _, param := range output.Parameters {
@@ -157,7 +188,24 @@ func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
 
 			output, err := client.GetParametersByPath(input)
 			if err != nil {
-				return params, err
+				if strings.Contains(err.Error(), "ThrottlingException") {
+					// Loop through up to maxRetryCount times with random sleep when we hit throttling exceptions
+					i := 0
+					for i < maxRetryCount {
+						fmt.Printf("++++++ Encountered SSM rate throttle exception. Sleeping for a random period.\n")
+						randomSleep()
+						output, err = client.GetParametersByPath(input)
+						// If we received no further errors, then we can break out of the loop and continue
+						if err == nil {
+							break
+						} else {
+							i++
+						}
+					}
+				} else {
+					// If it isn't a throttle exception, then just return the error
+					return params, err
+				}
 			}
 
 			params = append(params, output.Parameters...)
