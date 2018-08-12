@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	client *ssm.SSM
-	paths  []string
-	tags   []string
+	client         *ssm.SSM
+	paths          []string
+	tags           []string
+	recursivePaths bool
 
 	falseBool     = false
 	trueBool      = true
@@ -53,10 +54,12 @@ func initClient() {
 func initFlags() {
 	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies")
 	tagsFlag := flag.String("tags", "", "comma delimited string of tags to filter by")
+	recursiveFlag := flag.Bool("recursive", false, "recurse through SSM heirarchy")
 	flag.Parse()
 
 	initPaths(pathsFlag)
 	initTags(tagsFlag)
+	recursivePaths = *recursiveFlag
 }
 
 func initPaths(pathsFlag *string) {
@@ -178,7 +181,7 @@ func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
 		for !done {
 			input := &ssm.GetParametersByPathInput{
 				Path:           &path,
-				Recursive:      &trueBool,
+				Recursive:      &recursivePaths,
 				WithDecryption: &trueBool,
 			}
 
