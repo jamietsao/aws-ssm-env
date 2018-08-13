@@ -30,13 +30,17 @@ PASSWORD=productionpass
 SECRET_3=foobarbaz
 PASSWORD=stagingpass
 
-# filter by path (`/` will search all parameters)
-> AWS_REGION=<aws-region> aws-ssm-env --paths=/database
+# filter by path recursively (`/` will search all parameters)
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/database --recursive
 PASSWORD=productionpass
 PASSWORD=stagingpass
 
+# filter by path non-recursively
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/database
+# - this returns nothing
+
 # filter by path and tag
-> AWS_REGION=<aws-region> aws-ssm-env --paths=/database --tags=production
+> AWS_REGION=<aws-region> aws-ssm-env --paths=/database --tags=production --recursive
 PASSWORD=productionpass
 ```
 *Notice that parameter names are automatically capitalized.*
