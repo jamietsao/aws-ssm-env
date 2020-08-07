@@ -26,7 +26,7 @@ func main() {
 	initFlags()
 
 	// fetch parameters
-	params, err := fetchParams(paths)
+	params, err := fetchParams(paths, tags)
 	if err != nil {
 		panic(err)
 	}
@@ -69,7 +69,7 @@ func initTags(tagsFlag *string) {
 	}
 }
 
-func fetchParams(paths []string) ([]*ssm.Parameter, error) {
+func fetchParams(paths, tags []string) ([]*ssm.Parameter, error) {
 	// create tag filters
 	tagFilters := make([]*ssm.ParameterStringFilter, len(tags))
 	for i, tag := range tags {
@@ -197,5 +197,29 @@ func printParams(params []*ssm.Parameter) {
 		split := strings.Split(*param.Name, "/")
 		name := split[len(split)-1]
 		fmt.Printf("%s=%s\n", strings.ToUpper(name), *param.Value)
+	}
+}
+
+
+func getParamNameValues(params []*ssm.Parameter) map[string]string {
+	paramVals := make(map[string]string, len(params))
+	for _, param := range params {
+		split := strings.Split(*param.Name, "/")
+		name := split[len(split)-1]
+		paramVals[strings.ToUpper(name)] = *param.Value
+	}
+	return paramVals
+}
+
+func MustSetOS(paths, tags []string) {
+	params, err := fetchParams(paths, tags)
+	if err != nil {
+		panic(err)
+	}
+	nameValues := getParamNameValues(params)
+	for name, value := range nameValues {
+		if err := os.Setenv(name, value); err != nil{
+			panic(err)
+		}
 	}
 }
