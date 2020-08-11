@@ -88,3 +88,4 @@ func getParamNameValues(params []*ssm.Parameter) map[string]string {
 	}
 	return paramVals
 }
+
