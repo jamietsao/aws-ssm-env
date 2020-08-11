@@ -162,9 +162,8 @@ func MustSetOS(paths, tags []string) {
 	}
 	nameValues := getParamNameValues(params)
 	for name, value := range nameValues {
-		if err := os.Setenv(name, value); err != nil{
+		if err := os.Setenv(name, value); err != nil {
 			panic(err)
 		}
 	}
 }
-
