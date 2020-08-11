@@ -18,11 +18,6 @@ var (
 )
 
 func init() {
-	// initialize AWS client
-	initClient()
-}
-
-func initClient() {
 	session := session.Must(session.NewSession())
 	client = ssm.New(session)
 }
