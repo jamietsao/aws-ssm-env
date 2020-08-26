@@ -78,7 +78,6 @@ func printParams(params []*ssm.Parameter) {
 	}
 }
 
-
 func getParamNameValues(params []*ssm.Parameter) map[string]string {
 	paramVals := make(map[string]string, len(params))
 	for _, param := range params {
@@ -88,4 +87,3 @@ func getParamNameValues(params []*ssm.Parameter) map[string]string {
 	}
 	return paramVals
 }
-
