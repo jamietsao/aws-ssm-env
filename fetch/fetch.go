@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
@@ -18,8 +19,13 @@ var (
 )
 
 func init() {
+	awsConfig := aws.NewConfig()
+	ssmRegion := os.Getenv("SSM_REGION")
+	if ssmRegion != "" {
+		awsConfig = awsConfig.WithRegion(ssmRegion)
+	}
 	session := session.Must(session.NewSession())
-	client = ssm.New(session)
+	client = ssm.New(session, awsConfig)
 }
 
 func FetchParams(paths, tags []string) ([]*ssm.Parameter, error) {
