@@ -1,4 +1,4 @@
 .DS_Store
 main
 /bin
-/vendor
+aws-ssm-env
