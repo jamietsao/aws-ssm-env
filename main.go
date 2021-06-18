@@ -1,26 +1,39 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
+)
+
+const (
+	defaultBackoff time.Duration = 10 * time.Second
+
+	envBackoff = "AWS_SSM_ENV_BACKOFF"
 )
 
 var (
-	client *ssm.SSM
+	client *ssm.Client
 	paths  []string
 	tags   []string
-
-	trueBool = true
 )
 
 func main() {
 	// initialize AWS client
-	initClient()
+	err := initClient()
+	if err != nil {
+		log.Fatalf("error initializing client: %v", err)
+		os.Exit(1)
+	}
 
 	// initialize command line flags
 	initFlags()
@@ -28,16 +41,39 @@ func main() {
 	// fetch parameters
 	params, err := fetchParams(paths)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error fetching parameters: %v", err)
+		os.Exit(2)
 	}
 
 	// print as env variables
 	printParams(params)
 }
 
-func initClient() {
-	session := session.Must(session.NewSession())
-	client = ssm.New(session)
+func initClient() error {
+	// Create base config
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	// Create retryer with custom backoff if env var present
+	customRetryer := retry.NewStandard(func(o *retry.StandardOptions) {
+		o.MaxBackoff = defaultBackoff
+		backoffStr := os.Getenv(envBackoff)
+		if backoffStr == "" {
+			backoff, err := time.ParseDuration(backoffStr)
+			if err != nil {
+				o.MaxBackoff = backoff
+			}
+		}
+	})
+
+	// Create SSM client with retryer
+	client = ssm.NewFromConfig(cfg, func(o *ssm.Options) {
+		o.Retryer = customRetryer
+	})
+
+	return nil
 }
 
 func initFlags() {
@@ -69,12 +105,12 @@ func initTags(tagsFlag *string) {
 	}
 }
 
-func fetchParams(paths []string) ([]*ssm.Parameter, error) {
+func fetchParams(paths []string) ([]types.Parameter, error) {
 	// create tag filters
-	tagFilters := make([]*ssm.ParameterStringFilter, len(tags))
+	tagFilters := make([]types.ParameterStringFilter, len(tags))
 	for i, tag := range tags {
 		tagFilter := fmt.Sprintf("tag:%s", tag)
-		tagFilters[i] = &ssm.ParameterStringFilter{
+		tagFilters[i] = types.ParameterStringFilter{
 			Key: &tagFilter,
 		}
 	}
@@ -105,7 +141,7 @@ func fetchParams(paths []string) ([]*ssm.Parameter, error) {
 	return union, nil
 }
 
-func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
+func describeParams(filters []types.ParameterStringFilter) ([]string, error) {
 	paramNames := make([]string, 0)
 
 	done := false
@@ -116,10 +152,10 @@ func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
 		}
 
 		if nextToken != "" {
-			input.SetNextToken(nextToken)
+			input.NextToken = &nextToken
 		}
 
-		output, err := client.DescribeParameters(input)
+		output, err := client.DescribeParameters(context.TODO(), input)
 		if err != nil {
 			return paramNames, err
 		}
@@ -139,8 +175,8 @@ func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
 	return paramNames, nil
 }
 
-func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
-	params := make([]*ssm.Parameter, 0)
+func getParamsByPath(paths []string) ([]types.Parameter, error) {
+	params := make([]types.Parameter, 0)
 
 	// retrieve params for all paths
 	for _, path := range paths {
@@ -150,15 +186,15 @@ func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
 		for !done {
 			input := &ssm.GetParametersByPathInput{
 				Path:           &path,
-				Recursive:      &trueBool,
-				WithDecryption: &trueBool,
+				Recursive:      true,
+				WithDecryption: true,
 			}
 
 			if nextToken != "" {
-				input.SetNextToken(nextToken)
+				input.NextToken = &nextToken
 			}
 
-			output, err := client.GetParametersByPath(input)
+			output, err := client.GetParametersByPath(context.TODO(), input)
 			if err != nil {
 				return params, err
 			}
@@ -177,7 +213,7 @@ func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
 	return params, nil
 }
 
-func calcUnion(paramNames []string, params []*ssm.Parameter) []*ssm.Parameter {
+func calcUnion(paramNames []string, params []types.Parameter) []types.Parameter {
 	// build map lookup
 	lookup := make(map[string]bool)
 	for _, paramName := range paramNames {
@@ -185,7 +221,7 @@ func calcUnion(paramNames []string, params []*ssm.Parameter) []*ssm.Parameter {
 	}
 
 	// calculate union
-	union := make([]*ssm.Parameter, 0)
+	union := make([]types.Parameter, 0)
 	for _, param := range params {
 		if lookup[*param.Name] {
 			union = append(union, param)
@@ -195,7 +231,7 @@ func calcUnion(paramNames []string, params []*ssm.Parameter) []*ssm.Parameter {
 	return union
 }
 
-func printParams(params []*ssm.Parameter) {
+func printParams(params []types.Parameter) {
 	for _, param := range params {
 		split := strings.Split(*param.Name, "/")
 		name := split[len(split)-1]
