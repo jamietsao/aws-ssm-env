@@ -2,6 +2,12 @@
 
 Simple utility to print parameters from Amazon EC2 Systems Manager (ssm) Parameter Store as environment variables. This is useful for injecting secure secrets into the environment of a docker container process.
 
+## Environment Variables
+
+### AWS_SSM_ENV_BACKOFF
+
+Set `AWS_SSM_ENV_BACKOFF` to a Golang `time.Duration` string to set the automatic maximum exponential backoff for AWS API retries.
+
 ## Usage
 
 Create secret parameters on AWS Parameter Store for your application using [hierarchies](http://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-working.html#sysman-paramstore-su-organize):
@@ -88,9 +94,9 @@ Or download [binary](https://github.com/jamietsao/aws-ssm-env/releases/latest):
 
 ## Authors
 
-Jamie Tsao (original utility at https://github.com/jamietsao/aws-ssm-env)
+John Oberly III
 
-John Oberly III (build updates only)
+Jamie Tsao (original utility at https://github.com/jamietsao/aws-ssm-env)
 
 ## License
 
