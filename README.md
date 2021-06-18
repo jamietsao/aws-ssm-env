@@ -49,7 +49,17 @@ PASSWORD=productionpass
 
 *Notice that parameter names are automatically capitalized.*
 
-Use `export` with `aws-ssm-env` to inject secrets from Parameter Store into the environment:
+Use `export` with `aws-ssm-env` to inject secrets from Parameter Store into the environment.
+In the event the `aws-ssm-env` fails, it's recommended to capture the output and then export the variables:
+
+```
+VARS=$(AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=userservice,production)
+if [[ $? -ne 0 ]]; then
+    export "$VARS"
+fi
+```
+
+Or directly export environment variables for all parameters returned without error checking:
 
 ```
 > export $(AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=userservice,production)
