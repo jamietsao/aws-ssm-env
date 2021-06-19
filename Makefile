@@ -1,5 +1,5 @@
 # credit: https://vic.demuzere.be/articles/golang-makefile-crosscompile/
-PLATFORMS := darwin/386 darwin/amd64 linux/386 linux/amd64 windows/386 windows/amd64
+PLATFORMS := darwin/amd64 linux/386 linux/amd64 windows/386 windows/amd64
 
 checkenv:
 ifndef TAG
