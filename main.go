@@ -6,19 +6,19 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 )
 
 const (
-	defaultBackoff time.Duration = 10 * time.Second
-
-	envBackoff = "AWS_SSM_ENV_BACKOFF"
+	envBackoff  = "AWS_SSM_ENV_BACKOFF"
+	envAttempts = "AWS_SSM_ENV_ATTEMPTS"
 )
 
 var (
@@ -58,12 +58,18 @@ func initClient() error {
 
 	// Create retryer with custom backoff if env var present
 	customRetryer := retry.NewStandard(func(o *retry.StandardOptions) {
-		o.MaxBackoff = defaultBackoff
 		backoffStr := os.Getenv(envBackoff)
-		if backoffStr == "" {
+		if backoffStr != "" {
 			backoff, err := time.ParseDuration(backoffStr)
 			if err != nil {
 				o.MaxBackoff = backoff
+			}
+		}
+		attemptsStr := os.Getenv(envAttempts)
+		if attemptsStr != "" {
+			attempts, err := strconv.Atoi(attemptsStr)
+			if err != nil {
+				o.MaxAttempts = attempts
 			}
 		}
 	})
