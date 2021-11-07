@@ -5,21 +5,25 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/gametimesf/aws-ssm-env/fetch"
+	"github.com/jamietsao/aws-ssm-env/fetch"
 )
 
 var (
 	client *ssm.SSM
 	paths  []string
 	tags   []string
+	debug  bool
 
 	trueBool = true
 )
 
 func main() {
+	start := time.Now()
+
 	// initialize AWS client
 	initClient()
 
@@ -32,6 +36,10 @@ func main() {
 		panic(err)
 	}
 
+	elapsed := time.Since(start)
+
+	debugf("Params retrieved in %s\n", elapsed)
+
 	// print as env variables
 	printParams(params)
 }
@@ -42,9 +50,16 @@ func initClient() {
 }
 
 func initFlags() {
-	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies")
-	tagsFlag := flag.String("tags", "", "comma delimited string of tags to filter by")
+	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies (optional)")
+	tagsFlag := flag.String("tags", "", "comma delimited string of tags to filter by (optional)")
+	flag.BoolVar(&debug, "debug", false, "Enables debug logging when set to true")
 	flag.Parse()
+
+	if *pathsFlag == "" && *tagsFlag == "" {
+		fmt.Print("Flag required: Either --paths or --tags is required\n\n")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	initPaths(pathsFlag)
 	initTags(tagsFlag)
@@ -86,4 +101,10 @@ func getParamNameValues(params []*ssm.Parameter) map[string]string {
 		paramVals[strings.ToUpper(name)] = *param.Value
 	}
 	return paramVals
+}
+
+func debugf(format string, a ...interface{}) {
+	if debug {
+		fmt.Printf("DEBUG -- %s", fmt.Sprintf(format, a...))
+	}
 }

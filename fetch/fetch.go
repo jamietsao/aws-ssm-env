@@ -29,6 +29,60 @@ func init() {
 }
 
 func FetchParams(paths, tags []string) ([]*ssm.Parameter, error) {
+
+	fetchByPaths := len(paths) > 0
+	fetchByTags := len(tags) > 0
+
+	// if only fetching params by tags
+	if fetchByTags && !fetchByPaths {
+		// describe all parameters with given tags
+		paramNames, err := describeParameters(tags)
+		if err != nil {
+			return nil, err
+		}
+
+		// fetch these parameters directly
+		params, err := getParameters(paramNames)
+		if err != nil {
+			return params, err
+		}
+		return params, nil
+
+	} else if fetchByPaths && !fetchByTags {
+		// if only fetching params by paths
+
+		// retrieve params for given paths
+		params, err := getParametersByPath(paths)
+		if err != nil {
+			return params, err
+		}
+
+		return params, nil
+	} else {
+		// else if fetching params by both paths and tags
+
+		// describe all parameters with given tags
+		paramNames, err := describeParameters(tags)
+		if err != nil {
+			return nil, err
+		}
+
+		// retrieve params for given paths
+		params, err := getParametersByPath(paths)
+		if err != nil {
+			return params, err
+		}
+
+		// calculate union of two sets
+		union := calcUnion(paramNames, params)
+
+		return union, nil
+	}
+}
+
+// Gets information about SSM parameters with the given tags via describe-parameters (https://docs.aws.amazon.com/cli/latest/reference/ssm/describe-parameters.html)
+func describeParameters(tags []string) ([]*string, error) {
+
 	// create tag filters
 	tagFilters := make([]*ssm.ParameterStringFilter, len(tags))
 	for i, tag := range tags {
@@ -38,40 +92,13 @@ func FetchParams(paths, tags []string) ([]*ssm.Parameter, error) {
 		}
 	}
 
-	// TEMP: until parameter-filters work for get-parameters-by-path
-	// - https://docs.aws.amazon.com/cli/latest/reference/ssm/get-parameters-by-path.html ("This API action doesn't support filtering by tags.")
-	// - https://github.com/aws/aws-cli/issues/2850)
-	//
-	// 1) retrieve parameters by tags via describe-parameters
-	// 2) retrieve parameters by path via get-parameters-by-path
-	// 3) calculate union of two sets
-
-	// retrieve all parameters with given tags
-	paramNames, err := describeParams(tagFilters)
-	if err != nil {
-		return nil, err
-	}
-
-	// retrieve params for given paths
-	params, err := getParamsByPath(paths)
-	if err != nil {
-		return params, err
-	}
-
-	// calculate union of two sets
-	union := calcUnion(paramNames, params)
-
-	return union, nil
-}
-
-func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
-	paramNames := make([]string, 0)
+	paramNames := make([]*string, 0)
 
 	done := false
 	var nextToken string
 	for !done {
 		input := &ssm.DescribeParametersInput{
-			ParameterFilters: filters,
+			ParameterFilters: tagFilters,
 		}
 
 		if nextToken != "" {
@@ -84,7 +111,7 @@ func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
 		}
 
 		for _, param := range output.Parameters {
-			paramNames = append(paramNames, *param.Name)
+			paramNames = append(paramNames, param.Name)
 		}
 
 		// there are more parameters if nextToken is given in response
@@ -98,7 +125,49 @@ func describeParams(filters []*ssm.ParameterStringFilter) ([]string, error) {
 	return paramNames, nil
 }
 
-func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
+// Retrieves SSM parameters with the given names via get-parameters (https://docs.aws.amazon.com/cli/latest/reference/ssm/get-parameters.html)
+func getParameters(paramNames []*string) ([]*ssm.Parameter, error) {
+
+	// GetParameters only supports at max of 10 params
+	chunks := chunkParamNames(paramNames, 10)
+
+	parameters := make([]*ssm.Parameter, 0)
+	for _, chunk := range chunks {
+		output, err := client.GetParameters(&ssm.GetParametersInput{
+			Names:          chunk,
+			WithDecryption: &trueBool,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(output.InvalidParameters) > 1 {
+			return nil, fmt.Errorf("Invalid parameters found %v", output.InvalidParameters)
+		}
+
+		parameters = append(parameters, output.Parameters...)
+	}
+
+	return parameters, nil
+}
+
+func chunkParamNames(paramNames []*string, chunkSize int) [][]*string {
+	var chunks [][]*string
+	for i := 0; i < len(paramNames); i += chunkSize {
+		end := i + chunkSize
+		if end > len(paramNames) {
+			end = len(paramNames)
+		}
+
+		chunks = append(chunks, paramNames[i:end])
+	}
+
+	return chunks
+}
+
+// Retrieves SSM parameters in the given path hierarchies via get-parameters-by-path (https://docs.aws.amazon.com/cli/latest/reference/ssm/get-parameters-by-path.html)
+func getParametersByPath(paths []string) ([]*ssm.Parameter, error) {
 	params := make([]*ssm.Parameter, 0)
 
 	// retrieve params for all paths
@@ -136,11 +205,11 @@ func getParamsByPath(paths []string) ([]*ssm.Parameter, error) {
 	return params, nil
 }
 
-func calcUnion(paramNames []string, params []*ssm.Parameter) []*ssm.Parameter {
+func calcUnion(paramNames []*string, params []*ssm.Parameter) []*ssm.Parameter {
 	// build map lookup
 	lookup := make(map[string]bool)
 	for _, paramName := range paramNames {
-		lookup[paramName] = true
+		lookup[*paramName] = true
 	}
 
 	// calculate union
