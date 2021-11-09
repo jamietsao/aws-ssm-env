@@ -38,7 +38,10 @@ func FetchParams(paths, tags []string) ([]*ssm.Parameter, error) {
 		}
 	}
 
-	// TEMP: until parameter-filters work for get-parameters-by-path (https://github.com/aws/aws-cli/issues/2850),
+	// TEMP: until parameter-filters work for get-parameters-by-path
+	// - https://docs.aws.amazon.com/cli/latest/reference/ssm/get-parameters-by-path.html ("This API action doesn't support filtering by tags.")
+	// - https://github.com/aws/aws-cli/issues/2850)
+	//
 	// 1) retrieve parameters by tags via describe-parameters
 	// 2) retrieve parameters by path via get-parameters-by-path
 	// 3) calculate union of two sets
