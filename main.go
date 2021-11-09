@@ -81,16 +81,6 @@ func printParams(params []*ssm.Parameter) {
 	}
 }
 
-func getParamNameValues(params []*ssm.Parameter) map[string]string {
-	paramVals := make(map[string]string, len(params))
-	for _, param := range params {
-		split := strings.Split(*param.Name, "/")
-		name := split[len(split)-1]
-		paramVals[strings.ToUpper(name)] = *param.Value
-	}
-	return paramVals
-}
-
 func debugf(format string, a ...interface{}) {
 	if debug {
 		fmt.Printf("DEBUG -- %s", fmt.Sprintf(format, a...))
