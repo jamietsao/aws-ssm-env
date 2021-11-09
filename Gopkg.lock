@@ -2,26 +2,72 @@
 
 
 [[projects]]
+  digest = "1:b6031f28897fac33d8c1cfeeb08cac5794ee4cf4d0f46c37d924845a2ba71ce7"
   name = "github.com/aws/aws-sdk-go"
-  packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/xml/xmlutil","service/ssm","service/sts"]
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/corehandlers",
+    "aws/credentials",
+    "aws/credentials/ec2rolecreds",
+    "aws/credentials/endpointcreds",
+    "aws/credentials/stscreds",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/endpoints",
+    "aws/request",
+    "aws/session",
+    "aws/signer/v4",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/xml/xmlutil",
+    "service/ssm",
+    "service/sts",
+  ]
+  pruneopts = ""
   revision = "5615d2ed566a09d326f681c789310a2e5ba5de5d"
   version = "v1.10.50"
 
 [[projects]]
+  digest = "1:81f1ad1f89013b5a0d4fd22cf952064d27784a1bcedb5d612feb31534847865f"
+  name = "github.com/gametimesf/aws-ssm-env"
+  packages = ["fetch"]
+  pruneopts = ""
+  revision = "7112106c89c59e05b2f2d986386a9d3ffbbb864a"
+  version = "v1.2.0"
+
+[[projects]]
+  digest = "1:e26d0f8ccaf4087b93306d5e20e4816258116868ad6c6da0f2b4926c72fb92fa"
   name = "github.com/go-ini/ini"
   packages = ["."]
+  pruneopts = ""
   revision = "20b96f641a5ea98f2f8619ff4f3e061cff4833bd"
   version = "v1.28.2"
 
 [[projects]]
+  digest = "1:e6f0b9e4dced4b6b5fedb810e2125a9f74dfe2ef1598c55ecb25e8b3d8f514ea"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
+  pruneopts = ""
   revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
   version = "0.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dcb1f8347d17f43597ab2340ccb3686135a69200149ce68c20d3a4ac602afd01"
+  input-imports = [
+    "github.com/aws/aws-sdk-go/aws",
+    "github.com/aws/aws-sdk-go/aws/session",
+    "github.com/aws/aws-sdk-go/service/ssm",
+    "github.com/gametimesf/aws-ssm-env/fetch",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

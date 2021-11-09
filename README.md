@@ -19,6 +19,9 @@ Add tags to categorize parameters in various ways:
 > aws ssm add-tags-to-resource --resource-type Parameter --resource-id /database/staging/password --tags Key=userservice,Value=true Key=accountservice,Value=true Key=staging,Value=true
 ```
 Retrieve parameters with `aws-ssm-env`:
+
+**WARNING: Using '/' as a path (e.g. `--paths=/`) will recursively retrieve EVERY single parameter configured in Parameter Store.  This will increase the runtime of this script and could result in hitting SSM rate limits.**
+
 ```
 # filter by 'userservice' parameters for 'production'
 > AWS_REGION=<aws-region> aws-ssm-env --paths=/ --tags=userservice,production
@@ -30,7 +33,7 @@ PASSWORD=productionpass
 SECRET_3=foobarbaz
 PASSWORD=stagingpass
 
-# filter by path (`/` will search all parameters)
+# filter by path
 > AWS_REGION=<aws-region> aws-ssm-env --paths=/database
 PASSWORD=productionpass
 PASSWORD=stagingpass
