@@ -7,46 +7,34 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/jamietsao/aws-ssm-env/fetch"
 )
 
 var (
-	client *ssm.SSM
-	paths  []string
-	tags   []string
-	debug  bool
-
-	trueBool = true
+	paths []string
+	tags  []string
+	debug bool
 )
 
 func main() {
-	start := time.Now()
-
-	// initialize AWS client
-	initClient()
 
 	// initialize command line flags
 	initFlags()
 
 	// fetch parameters
-	params, err := fetch.FetchParams(paths, tags)
+	start := time.Now()
+	fetcher := fetch.NewFetcher(paths, tags, os.Getenv("SSM_REGION"), debug)
+	params, err := fetcher.FetchParams(paths, tags)
 	if err != nil {
 		panic(err)
 	}
-
 	elapsed := time.Since(start)
 
 	debugf("Params retrieved in %s\n", elapsed)
 
 	// print as env variables
 	printParams(params)
-}
-
-func initClient() {
-	session := session.Must(session.NewSession())
-	client = ssm.New(session)
 }
 
 func initFlags() {
@@ -91,16 +79,6 @@ func printParams(params []*ssm.Parameter) {
 		name := split[len(split)-1]
 		fmt.Printf("%s=%s\n", strings.ToUpper(name), *param.Value)
 	}
-}
-
-func getParamNameValues(params []*ssm.Parameter) map[string]string {
-	paramVals := make(map[string]string, len(params))
-	for _, param := range params {
-		split := strings.Split(*param.Name, "/")
-		name := split[len(split)-1]
-		paramVals[strings.ToUpper(name)] = *param.Value
-	}
-	return paramVals
 }
 
 func debugf(format string, a ...interface{}) {
