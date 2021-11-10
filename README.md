@@ -70,7 +70,7 @@ go get:
 ```
 Or download [binary](https://github.com/jamietsao/aws-ssm-env/releases/latest):
 ```
-> wget -O aws-ssm-env.zip https://github.com/jamietsao/aws-ssm-env/releases/download/v1.0.0/aws-ssm-env-v1.0.0-linux-amd64.zip
+> wget -O aws-ssm-env.zip https://github.com/jamietsao/aws-ssm-env/releases/download/v2.0.0/aws-ssm-env-v2.0.0-linux-amd64.zip
 > unzip aws-ssm-env.zip
 > chmod 755 aws-ssm-env
 ```
