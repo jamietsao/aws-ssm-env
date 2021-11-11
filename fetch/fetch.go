@@ -16,8 +16,6 @@ var (
 
 type Fetcher struct {
 	client *ssm.SSM
-	paths  []string
-	tags   []string
 	debug  bool
 }
 
@@ -25,7 +23,7 @@ type Fetcher struct {
 // as env variables via os.Setenv.  This function will panic if any error occurs.
 // Set debug to true for debug logging to STDOUT (WARNING: any sensitive SSM param values will be logged).
 func MustSetEnv(paths, tags []string, debug bool) {
-	fetcher := NewFetcher(paths, tags, os.Getenv("SSM_REGION"), debug)
+	fetcher := NewFetcher(os.Getenv("SSM_REGION"), debug)
 	params, err := fetcher.FetchParams(paths, tags)
 	if err != nil {
 		panic(err)
@@ -39,11 +37,11 @@ func MustSetEnv(paths, tags []string, debug bool) {
 	}
 }
 
-// NewFetcher returns a new *Fetcher for the given paths and tags.
+// NewFetcher returns a new *Fetcher.
 // Optional ssmRegion can be supplied if the SSM region is different
-// than the AWS_REGION this program is running from.
+// than the AWS_REGION this program is running in.
 // Set debug to true for debug logging to STDOUT (WARNING: any sensitive SSM param values will be logged).
-func NewFetcher(paths, tags []string, ssmRegion string, debug bool) *Fetcher {
+func NewFetcher(ssmRegion string, debug bool) *Fetcher {
 	// initialize aws client
 	awsConfig := aws.NewConfig()
 	if ssmRegion != "" {
@@ -54,8 +52,6 @@ func NewFetcher(paths, tags []string, ssmRegion string, debug bool) *Fetcher {
 
 	return &Fetcher{
 		client: client,
-		paths:  paths,
-		tags:   tags,
 		debug:  debug,
 	}
 }

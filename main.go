@@ -24,7 +24,7 @@ func main() {
 
 	// fetch parameters
 	start := time.Now()
-	fetcher := fetch.NewFetcher(paths, tags, os.Getenv("SSM_REGION"), debug)
+	fetcher := fetch.NewFetcher(os.Getenv("SSM_REGION"), debug)
 	params, err := fetcher.FetchParams(paths, tags)
 	if err != nil {
 		panic(err)
