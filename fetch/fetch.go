@@ -247,7 +247,7 @@ func (f *Fetcher) calcUnion(paramNames []*string, params []*ssm.Parameter) []*ss
 
 func (f *Fetcher) debugf(format string, a ...interface{}) {
 	if f.debug {
-		fmt.Printf("DEBUG -- %s", fmt.Sprintf(format, a...))
+		fmt.Printf("DEBUG -- " + format, a...)
 	}
 }
 
