@@ -83,6 +83,6 @@ func printParams(params []*ssm.Parameter) {
 
 func debugf(format string, a ...interface{}) {
 	if debug {
-		fmt.Printf("DEBUG -- %s", fmt.Sprintf(format, a...))
+		fmt.Printf("DEBUG -- "+format, a...)
 	}
 }
