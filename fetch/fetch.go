@@ -161,7 +161,7 @@ func (f *Fetcher) getParameters(paramNames []*string) ([]*ssm.Parameter, error) 
 	// GetParameters only supports at max of 10 params
 	chunks := chunkParamNames(paramNames, 10)
 
-	parameters := make([]*ssm.Parameter, 0)
+	parameters := make([]*ssm.Parameter, 0, len(paramNames))
 	for _, chunk := range chunks {
 		output, err := f.client.GetParameters(&ssm.GetParametersInput{
 			Names:          chunk,
