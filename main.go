@@ -5,46 +5,49 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/gametimesf/aws-ssm-env/fetch"
+	"github.com/jamietsao/aws-ssm-env/fetch"
 )
 
 var (
-	client *ssm.SSM
-	paths  []string
-	tags   []string
-
-	trueBool = true
+	paths []string
+	tags  []string
+	debug bool
 )
 
 func main() {
-	// initialize AWS client
-	initClient()
 
 	// initialize command line flags
 	initFlags()
 
 	// fetch parameters
-	params, err := fetch.FetchParams(paths, tags)
+	start := time.Now()
+	fetcher := fetch.NewFetcher(os.Getenv("SSM_REGION"), debug)
+	params, err := fetcher.FetchParams(paths, tags)
 	if err != nil {
 		panic(err)
 	}
+	elapsed := time.Since(start)
+
+	debugf("Params retrieved in %s\n", elapsed)
 
 	// print as env variables
 	printParams(params)
 }
 
-func initClient() {
-	session := session.Must(session.NewSession())
-	client = ssm.New(session)
-}
-
 func initFlags() {
-	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies")
-	tagsFlag := flag.String("tags", "", "comma delimited string of tags to filter by")
+	pathsFlag := flag.String("paths", "", "comma delimited string of parameter path hierarchies (optional)")
+	tagsFlag := flag.String("tags", "", "comma delimited string of tags to filter by (optional)")
+	flag.BoolVar(&debug, "debug", false, "Enables debug logging when set to true")
 	flag.Parse()
+
+	if *pathsFlag == "" && *tagsFlag == "" {
+		fmt.Print("Flag required: Either --paths or --tags is required\n\n")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	initPaths(pathsFlag)
 	initTags(tagsFlag)
@@ -78,12 +81,8 @@ func printParams(params []*ssm.Parameter) {
 	}
 }
 
-func getParamNameValues(params []*ssm.Parameter) map[string]string {
-	paramVals := make(map[string]string, len(params))
-	for _, param := range params {
-		split := strings.Split(*param.Name, "/")
-		name := split[len(split)-1]
-		paramVals[strings.ToUpper(name)] = *param.Value
+func debugf(format string, a ...interface{}) {
+	if debug {
+		fmt.Printf("DEBUG -- "+format, a...)
 	}
-	return paramVals
 }
